@@ -8,7 +8,7 @@ import { ProfileView } from "@/components/ProfileView";
 import { ReportDialog } from "@/components/ReportDialog";
 import { Spinner, VerifiedBadge, errorText } from "@/components/ui";
 import { useMe, useRequire } from "@/lib/me";
-import { supabase } from "@/lib/supabase/client";
+import { api } from "@/lib/backend";
 import type { Message, ProfileCard } from "@/lib/types";
 
 export default function ChatPage({ params }: { params: Promise<{ id: string }> }) {
@@ -27,29 +27,11 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
 
   useEffect(() => {
     if (!ok) return;
-    const sb = supabase();
-    sb.rpc("match_detail", { p_match_id: id }).then(({ data }) => setOther(data?.profile ?? null));
-    sb.from("messages")
-      .select("*")
-      .eq("match_id", id)
-      .order("created_at")
-      .limit(500)
-      .then(({ data }) => setMessages(data ?? []));
-
-    const channel = sb
-      .channel(`chat-${id}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages", filter: `match_id=eq.${id}` },
-        (payload) => {
-          const m = payload.new as Message;
-          setMessages((list) => (list.some((x) => x.id === m.id) ? list : [...list, m]));
-        },
-      )
-      .subscribe();
-    return () => {
-      sb.removeChannel(channel);
-    };
+    api.matchDetail(id).then((d) => setOther(d?.profile ?? null));
+    api.messages(id).then(setMessages);
+    return api.onMessage((m: Message) => {
+      setMessages((list) => (list.some((x) => x.id === m.id) ? list : [...list, m]));
+    }, id);
   }, [ok, id]);
 
   useEffect(() => {
@@ -62,21 +44,19 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     if (!body) return;
     setText("");
     setError("");
-    const { data, error } = await supabase()
-      .from("messages")
-      .insert({ match_id: id, sender: user!.id, body })
-      .select()
-      .single();
-    if (error) {
+    let data: Message;
+    try {
+      data = await api.sendMessage(id, body);
+    } catch (e) {
       setText(body);
-      return setError(errorText(error));
+      return setError(errorText(e));
     }
     setMessages((list) => (list.some((x) => x.id === data.id) ? list : [...list, data]));
   }
 
   async function unmatch() {
     if (!confirm(`Unmatch ${other?.name}? This deletes the chat for both of you.`)) return;
-    await supabase().rpc("unmatch", { p_match_id: id });
+    await api.unmatch(id);
     router.replace("/matches");
   }
 

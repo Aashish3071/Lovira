@@ -6,14 +6,13 @@ import { useRouter } from "next/navigation";
 import { SelfieCamera } from "@/components/SelfieCamera";
 import { Spinner, errorText } from "@/components/ui";
 import { ID_TYPES } from "@/lib/constants";
-import { uploadImage } from "@/lib/images";
 import { useMe, useRequire } from "@/lib/me";
-import { supabase } from "@/lib/supabase/client";
+import { api, IS_DEMO } from "@/lib/backend";
 
 export default function VerifyPage() {
   const ok = useRequire("profile");
   const router = useRouter();
-  const { user, status, refresh } = useMe();
+  const { status, refresh } = useMe();
   const [selfie, setSelfie] = useState<Blob | null>(null);
   const [idType, setIdType] = useState("");
   const [idFile, setIdFile] = useState<File | null>(null);
@@ -47,6 +46,7 @@ export default function VerifyPage() {
         <div className="mt-6 grid gap-2">
           <button className="btn-primary" onClick={() => refresh()}>Check again</button>
           <Link href="/profile/edit" className="btn-ghost">Edit profile</Link>
+          {IS_DEMO && <Link href="/admin" className="btn-ghost text-brand">Review it in the admin panel</Link>}
         </div>
         {status.is_admin && <div className="mt-6 text-left"><AdminBypass onDone={refresh} /></div>}
       </Notice>
@@ -61,12 +61,7 @@ export default function VerifyPage() {
     setBusy(true);
     setError("");
     try {
-      const selfiePath = await uploadImage("verification", user!.id, selfie);
-      const idPath = await uploadImage("verification", user!.id, idFile);
-      const { error } = await supabase().rpc("submit_verification", {
-        p_id_type: idType, p_selfie_path: selfiePath, p_id_path: idPath,
-      });
-      if (error) throw error;
+      await api.submitVerification(idType, selfie, idFile);
       setRetry(false);
       await refresh();
     } catch (e) {
@@ -95,7 +90,7 @@ export default function VerifyPage() {
         </p>
       </div>
 
-      {status.is_admin && <AdminBypass onDone={refresh} />}
+      {status.is_admin && !IS_DEMO && <AdminBypass onDone={refresh} />}
 
       <section className="card space-y-3 p-5">
         <h2 className="font-semibold">1. Take a live selfie</h2>
@@ -132,6 +127,7 @@ export default function VerifyPage() {
       <button className="btn-primary w-full" disabled={busy || !selfie || !idType || !idFile || !consent}>
         {busy ? "Uploading…" : "Submit for review"}
       </button>
+      {IS_DEMO && <AdminBypass onDone={refresh} />}
     </form>
   );
 }
@@ -152,9 +148,10 @@ function AdminBypass({ onDone }: { onDone: () => Promise<void> }) {
   const [error, setError] = useState("");
   async function go() {
     setBusy(true);
-    const { error } = await supabase().rpc("admin_self_verify");
-    if (error) {
-      setError(errorText(error));
+    try {
+      await api.adminSelfVerify();
+    } catch (e) {
+      setError(errorText(e));
       setBusy(false);
       return;
     }

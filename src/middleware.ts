@@ -4,6 +4,8 @@ import { NextResponse, type NextRequest } from "next/server";
 // Keeps the Supabase session cookie fresh on every request.
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
+  // Demo mode has no server-side session to refresh.
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === "true" || !process.env.NEXT_PUBLIC_SUPABASE_URL) return response;
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

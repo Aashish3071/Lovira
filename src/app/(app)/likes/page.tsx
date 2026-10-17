@@ -6,10 +6,8 @@ import { useRouter } from "next/navigation";
 import { ProfileView } from "@/components/ProfileView";
 import { PageHeader, Spinner, errorText } from "@/components/ui";
 import { useMe, useRequire } from "@/lib/me";
-import { supabase } from "@/lib/supabase/client";
+import { api, type Likes } from "@/lib/backend";
 import type { ProfileCard } from "@/lib/types";
-
-type Likes = { count: number; can_see: boolean; profiles: ProfileCard[] };
 
 export default function LikesPage() {
   const ok = useRequire("verified");
@@ -20,8 +18,7 @@ export default function LikesPage() {
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
-    const { data } = await supabase().rpc("likes_received");
-    setLikes(data as Likes);
+    setLikes(await api.likesReceived());
   }, []);
 
   useEffect(() => {
@@ -30,11 +27,15 @@ export default function LikesPage() {
 
   async function answer(p: ProfileCard, liked: boolean) {
     setError("");
-    const { data, error } = await supabase().rpc("swipe", { target: p.id, p_liked: liked });
-    if (error) return setError(/Daily limit/.test(error.message) ? "You've reached today's limit." : errorText(error));
+    let data;
+    try {
+      data = await api.swipe(p.id, liked);
+    } catch (e) {
+      return setError(/Daily limit/.test(errorText(e)) ? "You've reached today's limit." : errorText(e));
+    }
     setOpen(null);
     refresh();
-    if (data?.matched) router.push(`/chat/${data.match_id}`);
+    if (data.matched) router.push(`/chat/${data.match_id}`);
     else load();
   }
 

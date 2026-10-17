@@ -6,6 +6,31 @@ Verified-only dating for everyone in India. Free users see 150 verified profiles
 
 ---
 
+## 0. Demo mode (for client presentations)
+The app runs **entirely in the browser on sample data**, with no Supabase, Razorpay or accounts needed. It's on whenever `NEXT_PUBLIC_DEMO_MODE=true`, or automatically when no Supabase URL is set. A slim "Demo preview" strip tells viewers it's sample data.
+
+```bash
+npm install
+```
+```bash
+npm run dev
+```
+Then open http://localhost:3000. To share it, deploy to Vercel with **no environment variables**: it comes up in demo mode.
+
+**Suggested walkthrough (about 5 minutes):**
+1. Landing page → **Create your profile** → sign up with any email; the code is any 6 digits.
+2. Onboarding: name, birthday (try an under-18 date to show the block), gender, orientation, "show me", photos, bio.
+3. Verification: selfie + ID → "We're checking your details".
+4. Tap **Review it in the admin panel**. This is your founder view: approve yourself, and look at the sample applicants (ID cards marked SAMPLE) and reports.
+5. **Discover**: same-city profiles first. The second card has already liked you, so liking them shows **It's a match!**
+6. **Chats**: say hello; your match replies on their own. There's also a ready-made conversation.
+7. **Likes**: "N people like you" is locked → **See who likes you** → pay ₹29 in the **demo checkout** (no money moves) → their profiles appear.
+8. **Report or block** from any profile or chat; suspend from the admin Reports tab.
+
+Short on time? On the sign-in screen, tap **Use sample account** to start already verified. **Profile → Reset demo** clears everything for the next meeting. Each viewer's demo lives in their own browser.
+
+Sample pictures are DiceBear "Avataaars" illustrations (free for commercial use), so no real person's face is used. Change the people in `scripts/make-demo.mjs`, then run `npm run make-demo`.
+
 ## 1. One-time setup (about 30 minutes)
 
 ### a) Supabase (database + login + photos)

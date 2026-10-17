@@ -5,12 +5,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ProfileView } from "@/components/ProfileView";
 import { ReportDialog } from "@/components/ReportDialog";
 import { Spinner, errorText } from "@/components/ui";
-import { signedUrls } from "@/lib/images";
+import { api, type Feed } from "@/lib/backend";
+import { loadImageUrls } from "@/lib/images";
 import { useMe, useRequire } from "@/lib/me";
-import { supabase } from "@/lib/supabase/client";
 import type { ProfileCard } from "@/lib/types";
-
-type Feed = { remaining: number; profiles: ProfileCard[] };
 
 export default function DiscoverPage() {
   const ok = useRequire("verified");
@@ -25,9 +23,12 @@ export default function DiscoverPage() {
   const start = useRef<number | null>(null);
 
   const load = useCallback(async () => {
-    const { data, error } = await supabase().rpc("get_feed", { batch: 10 });
-    if (error) return setError(errorText(error));
-    const feed = data as Feed;
+    let feed: Feed;
+    try {
+      feed = await api.getFeed(10);
+    } catch (e) {
+      return setError(errorText(e));
+    }
     // Append rather than replace so the card on screen never jumps.
     setDeck((d) => {
       const seen = new Set(d?.map((p) => p.id));
@@ -35,7 +36,7 @@ export default function DiscoverPage() {
     });
     setRemaining(feed.remaining);
     // Warm the photo cache so the next cards appear instantly.
-    signedUrls("photos", feed.profiles.flatMap((p) => p.photos));
+    loadImageUrls("photos", feed.profiles.flatMap((p) => p.photos));
   }, []);
 
   useEffect(() => {
@@ -48,14 +49,17 @@ export default function DiscoverPage() {
     if (!current || busy) return;
     setBusy(true);
     setDrag(0);
-    const { data, error } = await supabase().rpc("swipe", { target: current.id, p_liked: liked });
-    setBusy(false);
-    if (error) {
-      if (/Daily limit/.test(error.message)) setRemaining(0);
-      else setError(errorText(error));
+    let data;
+    try {
+      data = await api.swipe(current.id, liked);
+    } catch (e) {
+      if (/Daily limit/.test(errorText(e))) setRemaining(0);
+      else setError(errorText(e));
       return;
+    } finally {
+      setBusy(false);
     }
-    if (data?.matched) setMatch({ id: data.match_id, profile: current });
+    if (data.matched && data.match_id) setMatch({ id: data.match_id, profile: current });
     setRemaining((r) => r - 1);
     const rest = deck!.slice(1);
     setDeck(rest);

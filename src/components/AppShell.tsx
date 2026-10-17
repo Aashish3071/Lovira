@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { IS_DEMO } from "@/lib/backend";
 import { useMe } from "@/lib/me";
 import { Logo } from "./ui";
 
@@ -18,6 +19,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col">
+      {IS_DEMO && <DemoStrip />}
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-line bg-bg/90 px-4 py-3 backdrop-blur">
         <Logo />
         {status?.plan && status.plan.id !== "free" ? (
@@ -55,6 +57,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </div>
       </nav>
+    </div>
+  );
+}
+
+export function DemoStrip() {
+  return (
+    <div className="bg-fg px-4 py-1.5 text-center text-xs text-bg">
+      Demo preview · sample profiles · no real payments
     </div>
   );
 }

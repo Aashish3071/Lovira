@@ -7,27 +7,9 @@ import { ProfileView } from "@/components/ProfileView";
 import { ID_TYPES, labelOf, REPORT_REASONS } from "@/lib/constants";
 import { useSignedUrls } from "@/lib/images";
 import { useMe, useRequire } from "@/lib/me";
-import { supabase } from "@/lib/supabase/client";
-import type { ProfileCard } from "@/lib/types";
+import { api, IS_DEMO, type AdminReport as Report, type PendingVerification as Pending } from "@/lib/backend";
 
-type Pending = {
-  user_id: string;
-  id_type: string;
-  selfie_path: string | null;
-  id_path: string | null;
-  submitted_at: string;
-  dob: string;
-  profile: ProfileCard;
-};
 
-type Report = {
-  id: string;
-  reason: string;
-  details: string | null;
-  created_at: string;
-  reporter: { id: string; name: string };
-  reported: { id: string; name: string; status: string; report_count: number };
-};
 
 export default function AdminPage() {
   const ok = useRequire("auth");
@@ -37,10 +19,9 @@ export default function AdminPage() {
   const [reports, setReports] = useState<Report[] | null>(null);
 
   const load = useCallback(async () => {
-    const sb = supabase();
-    const [v, r] = await Promise.all([sb.rpc("admin_pending_verifications"), sb.rpc("admin_reports")]);
-    setPending(v.data ?? []);
-    setReports(r.data ?? []);
+    const [v, r] = await Promise.all([api.adminPending(), api.adminReports()]);
+    setPending(v);
+    setReports(r);
   }, []);
 
   useEffect(() => {
@@ -59,6 +40,11 @@ export default function AdminPage() {
         <Link href="/profile" className="text-sm text-muted">Back to app</Link>
       </header>
       <h1 className="text-2xl font-bold">Admin</h1>
+      {IS_DEMO && (
+        <p className="mt-1 text-sm text-muted">
+          Demo: this is the founder&apos;s review panel. Sample applicants and reports are fake.
+        </p>
+      )}
       <div className="my-4 flex gap-2">
         <button className="chip" aria-pressed={tab === "verify"} onClick={() => setTab("verify")}>
           Verifications {pending ? `(${pending.length})` : ""}
@@ -101,18 +87,7 @@ function VerificationCard({ item, onDone }: { item: Pending; onDone: () => void 
     setBusy(true);
     setError("");
     try {
-      const sb = supabase();
-      // Delete the ID image first: we never keep government IDs after review.
-      if (item.id_path) {
-        const { error } = await sb.storage.from("verification").remove([item.id_path]);
-        if (error) throw error;
-      }
-      const { error } = await sb.rpc("admin_review", { target: item.user_id, approve, reason: reason.trim() || null });
-      if (error) throw error;
-      if (suspend) {
-        const { error } = await sb.rpc("admin_set_status", { target: item.user_id, p_status: "suspended" });
-        if (error) throw error;
-      }
+      await api.adminReview(item, approve, reason.trim() || null, suspend);
       onDone();
     } catch (e) {
       setError(errorText(e));
@@ -166,11 +141,7 @@ function ReportRow({ report, onDone }: { report: Report; onDone: () => void }) {
 
   async function act(action: "resolve" | "suspend" | "unsuspend") {
     setBusy(true);
-    const sb = supabase();
-    if (action !== "resolve") {
-      await sb.rpc("admin_set_status", { target: report.reported.id, p_status: action === "suspend" ? "suspended" : "active" });
-    }
-    await sb.from("reports").update({ status: "resolved" }).eq("id", report.id);
+    await api.adminReportAction(report, action);
     onDone();
   }
 

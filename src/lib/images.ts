@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "./supabase/client";
+import type { Bucket } from "./backend/types";
 
 // Shrinks a photo to at most `max` px on the long side and re-encodes it as JPEG.
 // Keeps uploads small on mobile data and strips location metadata.
@@ -18,34 +18,26 @@ export async function resizeImage(file: Blob, max = 1280, quality = 0.85): Promi
   );
 }
 
-export async function uploadImage(bucket: "photos" | "verification", userId: string, file: Blob) {
-  const blob = await resizeImage(file);
-  const path = `${userId}/${crypto.randomUUID()}.jpg`;
-  const { error } = await supabase().storage.from(bucket).upload(path, blob, { contentType: "image/jpeg" });
-  if (error) throw error;
-  return path;
-}
-
-// Signed URLs are cached for the session so swiping doesn't re-request them.
+// URLs are cached for the session so swiping doesn't re-request them.
 const cache = new Map<string, string>();
 
-export async function signedUrls(bucket: "photos" | "verification", paths: string[]) {
-  const key = (p: string) => `${bucket}:${p}`;
-  const missing = paths.filter((p) => !cache.has(key(p)));
+export async function loadImageUrls(bucket: Bucket, paths: string[]) {
+  const { api } = await import("./backend");
+  const missing = paths.filter((p) => p && !cache.has(`${bucket}:${p}`));
   if (missing.length) {
-    const { data } = await supabase().storage.from(bucket).createSignedUrls(missing, 60 * 60);
-    data?.forEach((d) => d.signedUrl && d.path && cache.set(key(d.path), d.signedUrl));
+    const urls = await api.imageUrls(bucket, missing);
+    missing.forEach((p, i) => urls[i] && cache.set(`${bucket}:${p}`, urls[i]));
   }
-  return paths.map((p) => cache.get(key(p)) ?? "");
+  return paths.map((p) => cache.get(`${bucket}:${p}`) ?? "");
 }
 
-export function useSignedUrls(paths: string[], bucket: "photos" | "verification" = "photos") {
+export function useSignedUrls(paths: string[], bucket: Bucket = "photos") {
   const joined = paths.join("|");
   const [, setLoaded] = useState(0);
   useEffect(() => {
     let live = true;
     const list = joined ? joined.split("|") : [];
-    signedUrls(bucket, list).then(() => live && setLoaded((n) => n + 1));
+    loadImageUrls(bucket, list).then(() => live && setLoaded((n) => n + 1));
     return () => {
       live = false;
     };

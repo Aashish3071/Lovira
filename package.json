@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "seed": "node scripts/seed.mjs",
     "make-admin": "node scripts/make-admin.mjs",
-    "test:db": "node supabase/tests/db.test.mjs"
+    "test:db": "node supabase/tests/db.test.mjs",
+    "make-demo": "node scripts/make-demo.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",
@@ -22,6 +23,8 @@
     "server-only": "^0.0.1"
   },
   "devDependencies": {
+    "@dicebear/collection": "^9.4.3",
+    "@dicebear/core": "^9.4.3",
     "@electric-sql/pglite": "^0.3.10",
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",

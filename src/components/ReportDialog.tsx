@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { REPORT_REASONS } from "@/lib/constants";
-import { supabase } from "@/lib/supabase/client";
-import { useMe } from "@/lib/me";
+import { api } from "@/lib/backend";
 import { Chips, errorText } from "./ui";
 
 // Report and/or block someone. Blocking removes any match and hides both people from each other.
@@ -13,7 +12,6 @@ export function ReportDialog({ targetId, name, onClose, onBlocked }: {
   onClose: () => void;
   onBlocked: () => void;
 }) {
-  const { user } = useMe();
   const [reason, setReason] = useState<string[]>([]);
   const [details, setDetails] = useState("");
   const [busy, setBusy] = useState(false);
@@ -24,16 +22,9 @@ export function ReportDialog({ targetId, name, onClose, onBlocked }: {
     setBusy(true);
     setError("");
     try {
-      const sb = supabase();
-      if (reason[0]) {
-        const { error } = await sb.from("reports").insert({
-          reporter: user!.id, reported: targetId, reason: reason[0], details: details || null,
-        });
-        if (error) throw error;
-      }
+      if (reason[0]) await api.report(targetId, reason[0], details || null);
       if (alsoBlock) {
-        const { error } = await sb.rpc("block_user", { target: targetId });
-        if (error) throw error;
+        await api.block(targetId);
         onBlocked();
         return;
       }

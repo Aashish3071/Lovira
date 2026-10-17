@@ -3,9 +3,10 @@
 import Script from "next/script";
 import { useEffect, useState } from "react";
 import { PageHeader, Spinner } from "@/components/ui";
-import { rupees } from "@/lib/constants";
+import { passName, rupees } from "@/lib/constants";
 import { useMe, useRequire } from "@/lib/me";
-import { supabase } from "@/lib/supabase/client";
+import { DemoCheckout } from "@/components/DemoCheckout";
+import { api, IS_DEMO } from "@/lib/backend";
 import type { Plan } from "@/lib/types";
 
 type RazorpayResponse = { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string };
@@ -27,19 +28,16 @@ export default function PremiumPage() {
   const [plans, setPlans] = useState<Plan[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [demoPlan, setDemoPlan] = useState<Plan | null>(null);
 
   useEffect(() => {
-    supabase()
-      .from("plans")
-      .select("*")
-      .eq("active", true)
-      .order("sort")
-      .then(({ data }) => setPlans(data ?? []));
+    api.plans().then(setPlans);
   }, []);
 
   async function buy(plan: Plan) {
-    setBusy(plan.id);
     setMessage(null);
+    if (IS_DEMO) return setDemoPlan(plan);
+    setBusy(plan.id);
     try {
       const res = await fetch("/api/payments/order", {
         method: "POST",
@@ -56,7 +54,7 @@ export default function PremiumPage() {
         amount: order.amount,
         currency: "INR",
         name: "Lovira",
-        description: `${order.plan_name} pass`,
+        description: passName(order.plan_name),
         prefill: { email: order.email },
         theme: { color: "#e11d48" },
         modal: { ondismiss: () => setBusy(null) },
@@ -69,7 +67,7 @@ export default function PremiumPage() {
           const out = await v.json();
           await refresh();
           setBusy(null);
-          setMessage(v.ok ? { ok: true, text: `Your ${order.plan_name} pass is active. Enjoy!` } : { ok: false, text: out.error });
+          setMessage(v.ok ? { ok: true, text: `Your ${passName(order.plan_name)} is active. Enjoy!` } : { ok: false, text: out.error });
         },
       }).open();
     } catch (e) {
@@ -86,13 +84,27 @@ export default function PremiumPage() {
 
   return (
     <div className="px-4">
-      <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
-      <PageHeader title="Lovira passes" />
+      {!IS_DEMO && <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />}
+      {demoPlan && (
+        <DemoCheckout
+          plan={demoPlan}
+          onClose={() => setDemoPlan(null)}
+          onPaid={async () => {
+            const name = demoPlan.name;
+            setDemoPlan(null);
+            await refresh();
+            setMessage({ ok: true, text: `Your ${passName(name)} is active. Enjoy!` });
+          }}
+        />
+      )}
+      <div className="-mx-4">
+        <PageHeader title="Lovira passes" />
+      </div>
       <p className="mb-4 text-muted">Pay only for the days you want. No auto-renewal, no subscription traps.</p>
 
       {endsAt && (
         <div className="mb-4 rounded-2xl bg-ok/10 p-4 text-sm text-ok">
-          Your {status.plan.name} pass is active until {endsAt.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}.
+          Your {passName(status.plan.name)} is active until {endsAt.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}.
         </div>
       )}
       {message && <p className={`mb-4 rounded-xl px-4 py-3 text-sm ${message.ok ? "bg-ok/10 text-ok" : "error"}`}>{message.text}</p>}

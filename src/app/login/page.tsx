@@ -5,7 +5,8 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Logo, errorText } from "@/components/ui";
 import { useMe } from "@/lib/me";
-import { supabase } from "@/lib/supabase/client";
+import { api, IS_DEMO } from "@/lib/backend";
+import { demoTools } from "@/lib/backend/demo";
 
 function LoginForm() {
   const router = useRouter();
@@ -25,22 +26,26 @@ function LoginForm() {
     e.preventDefault();
     setBusy(true);
     setError("");
-    const { error } = await supabase().auth.signInWithOtp({
-      email: email.trim(),
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
-    });
-    setBusy(false);
-    if (error) setError(errorText(error));
-    else setSent(true);
+    try {
+      await api.sendCode(email.trim());
+      setSent(true);
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function verify(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError("");
-    const { error } = await supabase().auth.verifyOtp({ email: email.trim(), token: code.trim(), type: "email" });
-    setBusy(false);
-    if (error) return setError("That code didn't work. Check it, or request a new one.");
+    try {
+      await api.verifyCode(email.trim(), code.trim());
+    } catch {
+      setBusy(false);
+      return setError("That code didn't work. Check it, or request a new one.");
+    }
     await refresh();
     router.replace("/discover");
   }
@@ -70,6 +75,27 @@ function LoginForm() {
             </div>
             {error && <p className="error">{error}</p>}
             <button className="btn-primary w-full" disabled={busy}>{busy ? "Sending…" : "Send code"}</button>
+            {IS_DEMO && (
+              <div className="rounded-2xl border border-dashed border-brand p-4 text-sm">
+                <p className="font-semibold text-brand">Demo preview</p>
+                <p className="mt-1 text-muted">
+                  Sign up with any email to walk through the full flow, or jump straight in with a ready-made, verified profile.
+                </p>
+                <button
+                  type="button"
+                  className="btn-ghost mt-3 w-full"
+                  disabled={busy}
+                  onClick={async () => {
+                    setBusy(true);
+                    await demoTools.useSampleAccount();
+                    await refresh();
+                    router.replace("/discover");
+                  }}
+                >
+                  Use sample account
+                </button>
+              </div>
+            )}
             <p className="text-center text-xs text-muted">
               By continuing you confirm you are 18 or older and agree to our{" "}
               <Link className="underline" href="/legal/terms">Terms</Link> and{" "}
@@ -82,6 +108,7 @@ function LoginForm() {
             <p className="text-muted">
               We sent a code to <strong className="text-fg">{email}</strong>. Enter it below, or tap the link in the email.
             </p>
+            {IS_DEMO && <p className="rounded-xl bg-soft px-4 py-3 text-sm">Demo: no email is sent. Type any 6 digits, e.g. 123456.</p>}
             <input
               className="input text-center text-2xl tracking-[0.5em]"
               inputMode="numeric"

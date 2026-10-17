@@ -2,13 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MAX_PHOTOS, MIN_PHOTOS } from "@/lib/constants";
-import { uploadImage, useSignedUrls } from "@/lib/images";
-import { supabase } from "@/lib/supabase/client";
+import { api, type Photo } from "@/lib/backend";
+import { useSignedUrls } from "@/lib/images";
 import { errorText } from "./ui";
 
-type Photo = { id: string; path: string; position: number };
-
-export function PhotoManager({ userId, onCountChange }: { userId: string; onCountChange?: (n: number) => void }) {
+export function PhotoManager({ onCountChange }: { onCountChange?: (n: number) => void }) {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -16,15 +14,10 @@ export function PhotoManager({ userId, onCountChange }: { userId: string; onCoun
   const urls = useSignedUrls(photos.map((p) => p.path));
 
   const load = useCallback(async () => {
-    const { data } = await supabase()
-      .from("photos")
-      .select("id, path, position")
-      .eq("user_id", userId)
-      .order("position")
-      .order("created_at");
-    setPhotos(data ?? []);
-    onCountChange?.(data?.length ?? 0);
-  }, [userId, onCountChange]);
+    const data = await api.myPhotos();
+    setPhotos(data);
+    onCountChange?.(data.length);
+  }, [onCountChange]);
 
   useEffect(() => {
     load();
@@ -38,9 +31,7 @@ export function PhotoManager({ userId, onCountChange }: { userId: string; onCoun
       const room = MAX_PHOTOS - photos.length;
       let pos = photos.length;
       for (const file of Array.from(files).slice(0, room)) {
-        const path = await uploadImage("photos", userId, file);
-        const { error } = await supabase().from("photos").insert({ user_id: userId, path, position: pos++ });
-        if (error) throw error;
+        await api.addPhoto(file, pos++);
       }
       await load();
     } catch (e) {
@@ -53,9 +44,7 @@ export function PhotoManager({ userId, onCountChange }: { userId: string; onCoun
 
   async function remove(p: Photo) {
     setBusy(true);
-    const sb = supabase();
-    await sb.storage.from("photos").remove([p.path]);
-    await sb.from("photos").delete().eq("id", p.id);
+    await api.removePhoto(p);
     await load();
     setBusy(false);
   }
@@ -63,8 +52,7 @@ export function PhotoManager({ userId, onCountChange }: { userId: string; onCoun
   async function makeMain(p: Photo) {
     setBusy(true);
     const ordered = [p, ...photos.filter((x) => x.id !== p.id)];
-    const sb = supabase();
-    await Promise.all(ordered.map((x, i) => sb.from("photos").update({ position: i }).eq("id", x.id)));
+    await api.reorderPhotos(ordered.map((x) => x.id));
     await load();
     setBusy(false);
   }

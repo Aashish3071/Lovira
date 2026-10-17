@@ -6,8 +6,9 @@ import { useRouter } from "next/navigation";
 import { ProfileView } from "@/components/ProfileView";
 import { Spinner } from "@/components/ui";
 import { useMe, useRequire } from "@/lib/me";
-import { supabase } from "@/lib/supabase/client";
-import type { Profile, ProfileCard } from "@/lib/types";
+import { api, IS_DEMO } from "@/lib/backend";
+import { demoTools } from "@/lib/backend/demo";
+import type { ProfileCard } from "@/lib/types";
 
 function age(dob: string) {
   const d = new Date(dob);
@@ -25,23 +26,19 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!ok || !user) return;
-    const sb = supabase();
-    Promise.all([
-      sb.from("profiles").select("*").eq("id", user.id).single(),
-      sb.from("photos").select("path").eq("user_id", user.id).order("position").order("created_at"),
-    ]).then(([{ data: p }, { data: ph }]) => {
-      const prof = p as Profile;
+    Promise.all([api.getMyProfile(), api.myPhotos()]).then(([prof, ph]) => {
+      if (!prof) return;
       setCard({
         ...prof,
         age: age(prof.dob),
         verified: status?.verification?.status === "approved",
-        photos: (ph ?? []).map((x) => x.path),
+        photos: ph.map((x) => x.path),
       });
     });
   }, [ok, user, status?.verification?.status]);
 
   async function signOut() {
-    await supabase().auth.signOut();
+    await api.signOut();
     router.replace("/");
   }
 
@@ -81,6 +78,18 @@ export default function ProfilePage() {
         <Link href="/legal/privacy" className="block p-4">Privacy policy</Link>
         <Link href="/legal/grievance" className="block p-4">Help &amp; grievances</Link>
         <button className="block w-full p-4 text-left text-brand" onClick={signOut}>Sign out</button>
+        {IS_DEMO && (
+          <button
+            className="block w-full p-4 text-left text-muted"
+            onClick={() => {
+              if (!confirm("Reset the demo? This clears your demo profile, matches and chats.")) return;
+              demoTools.reset();
+              router.replace("/");
+            }}
+          >
+            Reset demo
+          </button>
+        )}
       </div>
     </div>
   );

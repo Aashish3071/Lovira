@@ -67,4 +67,7 @@ export function genderLabel(gender: string, custom?: string | null) {
   return gender === "other" && custom ? custom : labelOf(GENDERS, gender);
 }
 
+// "Day Pass" stays as is; "Week" becomes "Week pass".
+export const passName = (name: string) => (/pass$/i.test(name) ? name : `${name} pass`);
+
 export const rupees = (paise: number) => `₹${(paise / 100).toLocaleString("en-IN")}`;

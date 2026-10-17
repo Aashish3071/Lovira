@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { GENDERS, MIN_PHOTOS, ORIENTATIONS, PROMPTS, STATES } from "@/lib/constants";
 import { useMe } from "@/lib/me";
-import { supabase } from "@/lib/supabase/client";
+import { api } from "@/lib/backend";
 import type { Profile, Prompt } from "@/lib/types";
 import { PhotoManager } from "./PhotoManager";
 import { Chips, Spinner, errorText } from "./ui";
@@ -41,12 +41,7 @@ export function ProfileForm({ mode }: { mode: "onboarding" | "edit" }) {
 
   useEffect(() => {
     if (!user) return;
-    supabase()
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .maybeSingle()
-      .then(({ data }) => {
+    api.getMyProfile().then((data) => {
         if (data) {
           setF({ ...EMPTY, ...data, gender_custom: data.gender_custom ?? "", bio: data.bio ?? "" });
           setExists(true);
@@ -79,7 +74,7 @@ export function ProfileForm({ mode }: { mode: "onboarding" | "edit" }) {
       name: f.name.trim(),
       dob: f.dob,
       gender: f.gender,
-      gender_custom: f.gender === "other" ? f.gender_custom?.trim() : null,
+      gender_custom: f.gender === "other" ? (f.gender_custom?.trim() ?? null) : null,
       orientations: f.orientations,
       show_me: f.show_me,
       age_min: f.age_min,
@@ -89,10 +84,7 @@ export function ProfileForm({ mode }: { mode: "onboarding" | "edit" }) {
       bio: f.bio?.trim() || null,
       prompts: f.prompts.filter((p) => p.a.trim()),
     };
-    const { error } = exists
-      ? await supabase().from("profiles").update(row).eq("id", user!.id)
-      : await supabase().from("profiles").insert(row);
-    if (error) throw error;
+    await api.saveMyProfile(row, exists);
     setExists(true);
   }
 
@@ -228,7 +220,7 @@ export function ProfileForm({ mode }: { mode: "onboarding" | "edit" }) {
         </div>
       )}
 
-      {step === 2 && <PhotoManager userId={user.id} onCountChange={setPhotoCount} />}
+      {step === 2 && <PhotoManager onCountChange={setPhotoCount} />}
 
       {step === 3 && (
         <div className="space-y-6">

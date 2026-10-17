@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Avatar } from "@/components/Avatar";
 import { PageHeader, Spinner } from "@/components/ui";
 import { useMe, useRequire } from "@/lib/me";
-import { supabase } from "@/lib/supabase/client";
+import { api } from "@/lib/backend";
 import type { MatchSummary } from "@/lib/types";
 
 export default function MatchesPage() {
@@ -15,16 +15,10 @@ export default function MatchesPage() {
 
   useEffect(() => {
     if (!ok) return;
-    const load = () => supabase().rpc("my_matches").then(({ data }) => setMatches(data ?? []));
+    const load = () => api.myMatches().then(setMatches);
     load();
     // New messages in any of my chats bump that chat to the top.
-    const channel = supabase()
-      .channel("matches-list")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, load)
-      .subscribe();
-    return () => {
-      supabase().removeChannel(channel);
-    };
+    return api.onMessage(load);
   }, [ok]);
 
   if (!ok || !matches) return <Spinner />;
@@ -65,7 +59,9 @@ export default function MatchesPage() {
               </p>
             </div>
             <span className="text-xs text-muted">
-              {new Date(m.last_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+              {new Date(m.last_at).toDateString() === new Date().toDateString()
+                ? new Date(m.last_at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })
+                : new Date(m.last_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
             </span>
           </Link>
         ))}
