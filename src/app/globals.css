@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #fbf7f8;
+  --fg: #1d1418;
+  --muted: #6f6168;
+  --card: #ffffff;
+  --line: #ecdfe4;
+  --soft: #f6ecef;
+  --brand: #e11d48;
+  --brand-2: #f97316;
+  --brand-fg: #ffffff;
+  --ok: #15803d;
+  --warn: #b45309;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #120d10;
+    --fg: #f5eef1;
+    --muted: #a8989f;
+    --card: #1c1519;
+    --line: #2f2429;
+    --soft: #261d22;
+    --brand: #fb4f74;
+    --brand-2: #fb923c;
+    --brand-fg: #ffffff;
+    --ok: #4ade80;
+    --warn: #fbbf24;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-card: var(--card);
+  --color-line: var(--line);
+  --color-soft: var(--soft);
+  --color-brand: var(--brand);
+  --color-brand-2: var(--brand-2);
+  --color-brand-fg: var(--brand-fg);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --font-sans: var(--font-geist-sans);
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/* Reusable component classes. @utility (not @layer) so they can build on each other with @apply. */
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
+}
+@utility btn-primary {
+  @apply btn bg-gradient-to-r from-brand to-brand-2 text-brand-fg shadow-sm;
+}
+@utility btn-ghost {
+  @apply btn border border-line bg-card text-fg;
+}
+@utility input {
+  @apply w-full rounded-xl border border-line bg-card px-4 py-3 text-base text-fg outline-none placeholder:text-muted focus:border-brand;
+}
+@utility label {
+  @apply mb-1.5 block text-sm font-medium text-fg;
+}
+@utility card {
+  @apply rounded-2xl border border-line bg-card;
+}
+@utility chip {
+  @apply rounded-full border border-line bg-card px-3.5 py-2 text-sm text-fg transition;
+  &[aria-pressed="true"] {
+    @apply border-brand bg-brand text-brand-fg;
+  }
+}
+@utility error {
+  @apply rounded-xl bg-brand/10 px-4 py-3 text-sm text-brand;
+}
