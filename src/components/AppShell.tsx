@@ -6,11 +6,38 @@ import { IS_DEMO } from "@/lib/backend";
 import { useMe } from "@/lib/me";
 import { Logo } from "./ui";
 
-const TABS = [
-  { href: "/discover", label: "Discover", icon: "M12 21s-7.5-4.6-7.5-10.5A4.5 4.5 0 0 1 12 7.6a4.5 4.5 0 0 1 7.5 2.9C19.5 16.4 12 21 12 21Z" },
-  { href: "/likes", label: "Likes", icon: "M5 12.5 9.5 17 19 7.5" },
-  { href: "/matches", label: "Chats", icon: "M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H10l-4 4v-4h0A2.5 2.5 0 0 1 4 13.5v-7Z" },
-  { href: "/profile", label: "Profile", icon: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0" },
+// Outline icons; the selected tab fills its shape and sits on a tinted pill.
+const TABS: { href: string; label: string; icon: React.ReactNode }[] = [
+  {
+    href: "/discover",
+    label: "Discover",
+    icon: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="m15.5 8.5-2 5-5 2 2-5 5-2Z" />
+      </>
+    ),
+  },
+  {
+    href: "/likes",
+    label: "Likes",
+    icon: <path d="M12 20s-7.5-4.6-7.5-10.3A4.3 4.3 0 0 1 12 7a4.3 4.3 0 0 1 7.5 2.7C19.5 15.4 12 20 12 20Z" />,
+  },
+  {
+    href: "/matches",
+    label: "Chats",
+    icon: <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H10l-4 4v-4A2.5 2.5 0 0 1 4 13.5v-7Z" />,
+  },
+  {
+    href: "/profile",
+    label: "Profile",
+    icon: (
+      <>
+        <circle cx="12" cy="8" r="4" />
+        <path d="M5 20a7 7 0 0 1 14 0Z" />
+      </>
+    ),
+  },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -37,21 +64,37 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto grid max-w-md grid-cols-4">
           {TABS.map((t) => {
             const active = pathname.startsWith(t.href);
+            const badge = t.href === "/likes" ? status?.likes_count ?? 0 : 0;
             return (
               <Link
                 key={t.href}
                 href={t.href}
-                className={`relative flex flex-col items-center gap-1 py-2.5 text-xs ${active ? "text-brand" : "text-muted"}`}
+                aria-current={active ? "page" : undefined}
+                className={`flex flex-col items-center gap-1 pb-2 pt-2.5 text-[11px] transition-colors ${
+                  active ? "font-semibold text-brand" : "font-medium text-muted hover:text-fg"
+                }`}
               >
-                <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d={t.icon} />
-                </svg>
+                <span className={`relative flex h-8 w-14 items-center justify-center rounded-full transition-colors ${active ? "bg-brand/15" : ""}`}>
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-6 w-6"
+                    fill={active ? "currentColor" : "none"}
+                    fillOpacity={active ? 0.25 : 0}
+                    stroke="currentColor"
+                    strokeWidth={active ? 2.2 : 1.8}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden
+                  >
+                    {t.icon}
+                  </svg>
+                  {badge > 0 && (
+                    <span className="absolute -right-0.5 -top-1 min-w-[18px] rounded-full border-2 border-card bg-brand px-1 text-center text-[10px] font-bold leading-[14px] text-brand-fg">
+                      {badge > 99 ? "99+" : badge}
+                    </span>
+                  )}
+                </span>
                 {t.label}
-                {t.href === "/likes" && !!status?.likes_count && (
-                  <span className="absolute right-[28%] top-1.5 min-w-4 rounded-full bg-brand px-1 text-[10px] font-bold leading-4 text-brand-fg">
-                    {status.likes_count > 99 ? "99+" : status.likes_count}
-                  </span>
-                )}
               </Link>
             );
           })}
